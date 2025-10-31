@@ -1,0 +1,7 @@
+numpy
+opencv-python
+h5py
+pyzed
+tqdm
+torch
+matplotlib

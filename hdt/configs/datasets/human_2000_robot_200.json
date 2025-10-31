@@ -1,0 +1,16 @@
+{
+  "train": [
+    "human_circle1025",
+    "human_kitch",
+    "human_white_long",
+    "human_circle_table",
+    "human_kitch1025",
+    "human_white_desk",
+    "vr_converted_20d_robot"
+  ],
+  "val": [
+    "robot_val",
+    "human_val"
+  ]
+}
+

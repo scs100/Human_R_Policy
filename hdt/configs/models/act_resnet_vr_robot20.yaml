@@ -1,0 +1,21 @@
+common:
+  policy_class: ACT
+  state_dim: 20      # 左右臂 xyz(3)+rot6d(6) + 左右夹爪(1) = 20
+  action_dim: 20
+  action_chunk_size: 15  # chunk size (预测序列长度)
+  camera_names: ['left']  # VR数据只有左相机
+
+model:
+  enc_layers: 4
+  dec_layers: 7
+  nheads: 8
+  hidden_dim: 512
+  kl_weight: 10
+  dim_feedforward: 3200
+  lr_backbone: 1.0e-5 
+  backbone: dinov2_vits14
+  image_feature_strategy: linear
+  use_language_conditioning: False
+
+data:
+  image_resolution_hw: [480, 640]  # VR数据的图像分辨率
