@@ -348,7 +348,7 @@ def train_fn(accelerator, train_dataloader, val_dataloader, policy, optimizer, c
                 wandb.log(epoch_summary, step=cur_iter)
 
                 #! save ckpt
-                if cur_iter % 10000 == 0 and cur_iter != 0:
+                if cur_iter % 50000 == 0 and cur_iter != 0:
                     ckpt_path = os.path.join(ckpt_dir, f'policy_iter_{cur_iter}_seed_{seed}')
                     accelerator.save_state(ckpt_path, safe_serialization=False)
                     # torch.save(policy.state_dict(), ckpt_path)

@@ -9,6 +9,15 @@ e = IPython.embed
 
 import hdt.constants
 import hdt.constant_20d
+import hdt  # 确保 hdt 模块在全局作用域可用
+# 导入16维常量（与constant_20d同样的方式）
+try:
+    import hdt.constant_16d_joint
+except ImportError as e:
+    # 如果导入失败，记录错误但不在模块级别抛出
+    # 将在运行时根据action_dim决定是否需要
+    _constant_16d_joint_error = e
+    hdt.constant_16d_joint = None
 
 class ACTPolicy(nn.Module):
     def __init__(self, args_override):
@@ -22,6 +31,30 @@ class ACTPolicy(nn.Module):
         self.action_dim = args_override['action_dim']
         if self.action_dim == 20:
             self.constants = hdt.constant_20d
+        elif self.action_dim == 16:
+            # 使用16维关节角常量
+            # 使用全局的 hdt 模块引用，避免局部变量冲突
+            import hdt as _hdt_module
+            if _hdt_module.constant_16d_joint is None:
+                # 如果导入失败，尝试重新导入
+                import sys
+                import os
+                # 获取当前文件所在目录（hdt目录）
+                current_dir = os.path.dirname(os.path.abspath(__file__))
+                # 获取项目根目录（hdt的父目录）
+                parent_dir = os.path.dirname(current_dir)
+                # 确保项目根目录在Python路径中
+                if parent_dir not in sys.path:
+                    sys.path.insert(0, parent_dir)
+                # 重新导入
+                try:
+                    import hdt.constant_16d_joint
+                    _hdt_module.constant_16d_joint = hdt.constant_16d_joint
+                except ImportError:
+                    # 如果还是失败，尝试直接导入
+                    import constant_16d_joint
+                    _hdt_module.constant_16d_joint = constant_16d_joint
+            self.constants = _hdt_module.constant_16d_joint
         else:
             self.constants = hdt.constants
         # patch_h = 24
@@ -54,8 +87,15 @@ class ACTPolicy(nn.Module):
             loss_dict['kl'] = total_kld[0]
             loss_dict['loss'] = loss_dict['l1'] + loss_dict['kl'] * self.kl_weight
             if self.USE_EEF_LOSS:
-                loss_dict['eef_loss'] = all_l1[:, :, self.constants.OUTPUT_LEFT_EEF].mean() + all_l1[:, :, self.constants.OUTPUT_RIGHT_EEF].mean()
-                loss_dict['loss'] = loss_dict['loss'] + loss_dict['eef_loss'] * 2
+                # 检查是否有EEF索引（对于关节角数据可能没有）
+                if len(self.constants.OUTPUT_LEFT_EEF) > 0 and len(self.constants.OUTPUT_RIGHT_EEF) > 0:
+                    loss_dict['eef_loss'] = all_l1[:, :, self.constants.OUTPUT_LEFT_EEF].mean() + all_l1[:, :, self.constants.OUTPUT_RIGHT_EEF].mean()
+                    loss_dict['loss'] = loss_dict['loss'] + loss_dict['eef_loss'] * 2
+                # 对于关节角数据，可以使用关节角损失代替EEF损失
+                elif hasattr(self.constants, 'OUTPUT_LEFT_ARM_JOINTS') and hasattr(self.constants, 'OUTPUT_RIGHT_ARM_JOINTS'):
+                    if len(self.constants.OUTPUT_LEFT_ARM_JOINTS) > 0 and len(self.constants.OUTPUT_RIGHT_ARM_JOINTS) > 0:
+                        loss_dict['arm_joint_loss'] = all_l1[:, :, self.constants.OUTPUT_LEFT_ARM_JOINTS].mean() + all_l1[:, :, self.constants.OUTPUT_RIGHT_ARM_JOINTS].mean()
+                        loss_dict['loss'] = loss_dict['loss'] + loss_dict['arm_joint_loss'] * 2
             return loss_dict
         else: # inference time
             a_hat, _, (_, _) = self.model(qpos, image, env_state, conditioning_dict=conditioning_dict) # no action, sample from prior
@@ -74,8 +114,8 @@ class CNNMLPPolicy(nn.Module):
 
     def __call__(self, image, qpos, actions=None, is_pad=None, conditioning_dict=None):
         env_state = None # TODO
-        normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                         std=[0.229, 0.224, 0.225])
+        normalize = v2.Normalize(mean=[0.485, 0.456, 0.406],
+                                 std=[0.229, 0.224, 0.225])
         image = normalize(image)
         if actions is not None: # training time
             actions = actions[:, 0]

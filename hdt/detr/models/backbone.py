@@ -98,7 +98,14 @@ class Backbone(BackboneBase):
 class DINOv2BackBone(nn.Module):
     def __init__(self, model_name: str='dinov2_vits14', image_feature_strategy: str='ACT_linear') -> None:
         super().__init__()
-        self.body = torch.hub.load('facebookresearch/dinov2', model_name)
+        # 使用 source='local' 和 force_reload=False 来避免网络请求，直接使用本地缓存
+        try:
+            self.body = torch.hub.load('facebookresearch/dinov2', model_name, source='local', force_reload=False, trust_repo=True)
+        except Exception as e:
+            # 如果本地加载失败，尝试从 GitHub 加载（需要网络）
+            print(f"Warning: Failed to load from local cache: {e}")
+            print("Attempting to load from GitHub (requires network connection)...")
+            self.body = torch.hub.load('facebookresearch/dinov2', model_name, trust_repo=True)
         self.body.eval()
         # This follows depth estimation indices used in
         # https://dl.fbaipublicfiles.com/dinov2/dinov2_vits14/dinov2_vits14_nyu_linear4_config.py
